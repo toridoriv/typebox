@@ -1,0 +1,25 @@
+{
+  "[javascript][json][jsonc][markdown][typescript]": {
+    "editor.codeActionsOnSave": [
+      "source.fixAll.eslint"
+    ],
+    "editor.defaultFormatter": "dbaeumer.vscode-eslint",
+    "editor.formatOnSave": true
+  },
+  "eslint.enable": true,
+  "eslint.experimental.useFlatConfig": true,
+  "eslint.format.enable": true,
+  "eslint.runtime": "node",
+  "eslint.validate": [
+    "json",
+    "jsonc",
+    "javascript",
+    "markdown",
+    "typescript"
+  ],
+  "javascript.suggestionActions.enabled": false,
+  "typescript.disableAutomaticTypeAcquisition": true,
+  "typescript.enablePromptUseWorkspaceTsdk": true,
+  "typescript.suggest.autoImports": true,
+  "typescript.tsdk": "./node_modules/typescript/lib"
+}

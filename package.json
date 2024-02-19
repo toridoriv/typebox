@@ -1,0 +1,31 @@
+{
+  "name": "@toridoriv/typebox",
+  "version": "0.1.0",
+  "type": "module",
+  "description": "My custom implementation of TypeBox.",
+  "author": {
+    "name": "Victoria Rodriguez",
+    "email": "vrodriguezfe@icloud.com",
+    "url": "https://github.com/toridoriv"
+  },
+  "license": "GPLv3",
+  "homepage": "https://github.com/toridoriv/typebox",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/toridoriv/typebox.git"
+  },
+  "bugs": {
+    "url": "https://github.com/toridoriv/typebox/issues",
+    "email": "vrodriguezfe@icloud.com"
+  },
+  "scripts": {
+    "start": "node lib/index.js"
+  },
+  "devDependencies": {
+    "@toridoriv/eslint-config": "github:toridoriv/eslint-config",
+    "eslint": "^8.56.0"
+  },
+  "dependencies": {
+    "@sinclair/typebox": "^0.32.14"
+  }
+}
