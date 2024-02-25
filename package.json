@@ -19,12 +19,23 @@
     "email": "vrodriguezfe@icloud.com"
   },
   "scripts": {
-    "start": "node lib/index.js"
+    "start": "node lib/index.js",
+    "chmod": "chmod -R +x scripts",
+    "create:script": "scripty",
+    "postcreate:script": "npm run chmod && npm run lint:fix:scripts && eslint --fix package.json",
+    "lint:fix:scripts": "eslint --fix scripts",
+    "generate:types": "scripty"
   },
   "devDependencies": {
     "@toridoriv/cliffy": "github:toridoriv/cliffy",
     "@toridoriv/eslint-config": "github:toridoriv/eslint-config",
-    "eslint": "^8.56.0"
+    "@toridoriv/toolkit": "github:toridoriv/toolkit",
+    "@types/mustache": "^4.2.5",
+    "eslint": "^8.56.0",
+    "mustache": "^4.2.0",
+    "scripty": "^2.1.1",
+    "ts-to-jsdoc": "^1.5.2",
+    "tslog": "^4.9.2"
   },
   "dependencies": {
     "@sinclair/typebox": "^0.32.14"

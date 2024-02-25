@@ -1,0 +1,10 @@
+#!/usr/bin/env node --enable-source-maps --experimental-specifier-resolution=node
+
+import { Command } from "@toridoriv/cliffy";
+
+const {{name}} = new Command()
+  .name("{{directory}}:{{name}}")
+  .description("DESCRIBE_HERE")
+  .action(function handle(_options) {});
+
+{{name}}.parse(process.argv.slice(2));
