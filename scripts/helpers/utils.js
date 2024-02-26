@@ -304,8 +304,12 @@ export function getUnique(arr) {
 }
 
 /**
+ * Checks if an object has a property with the given key.
+ *
  * @template {PropertyKey} K
- * @param {K} key
+ * @param {K} key - The property key to check for.
+ * @returns {<O extends { [P in K]?: any }>(obj: O) => obj is SetRequired<O, K>}
+ * A function that receives an object to search the property in.
  */
 export function hasProperty(key) {
   /**
@@ -314,6 +318,32 @@ export function hasProperty(key) {
    * @returns {obj is SetRequired<O, K>}
    */
   return function check(obj) {
-    return key in obj;
+    return key in obj && obj[key] !== undefined;
   };
+}
+
+/**
+ * Checks if the given item exists in the given array.
+ *
+ * @template T
+ * @param {T[]} target - The array to search in.
+ * @param {T}   item   - The item to search for.
+ * @returns {boolean} `true` if the item is not found in the array, `false` otherwise.
+ */
+export function isInArray(target, item) {
+  const inTarget = target.find(areEquals.bind(null, item));
+
+  return inTarget === undefined;
+}
+
+/**
+ * Checks if two values are equal.
+ *
+ * @template T
+ * @param {T} a - The first value to compare.
+ * @param {T} b - The second value to compare.
+ * @returns {boolean} `true` if a and b are equal, `false` otherwise.
+ */
+export function areEquals(a, b) {
+  return a === b;
 }

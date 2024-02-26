@@ -1,46 +1,24 @@
 import fs from "node:fs";
 
+import mustache from "mustache";
+import * as prettier from "prettier";
 import ts from "typescript";
 
 import * as utils from "./utils.js";
-
-/* -------------------------------------------------------------------------- */
-/*                                 Class Type                                 */
-/* -------------------------------------------------------------------------- */
-export class Type {
-  /**
-   * @param {string} name
-   */
-  constructor(name) {
-    this.name = name;
-  }
-}
-
-/* -------------------------------------------------------------------------- */
-/*                                Class Generic                               */
-/* -------------------------------------------------------------------------- */
-export class Generic {
-  /**
-   * @param {string} name
-   */
-  constructor(name) {
-    this.name = name;
-  }
-
-  renderAsName() {}
-
-  renderAsType() {}
-}
 
 /* -------------------------------------------------------------------------- */
 /*                                Class Method                                */
 /* -------------------------------------------------------------------------- */
 export class Method {
   /**
-   * @param {string} name
+   * Initializes a new Method instance.
+   *
+   * @param {ProgramGenerator} generator - The program generator instance.
+   * @param {string}           name      - The original name of the method.
+   * @returns {Method} The new Method instance.
    */
-  static init(name) {
-    return new Method(name);
+  static init(generator, name) {
+    return new Method(name, generator);
   }
 
   /**
@@ -52,20 +30,95 @@ export class Method {
   declarations = [];
 
   /**
-   * @param {string} name
+   * @param {string}           name      - The original name of the method.
+   * @param {ProgramGenerator} generator - The program generator instance.
    */
-  constructor(name) {
+  constructor(name, generator) {
     /**
      * The name of this method.
      */
     this.name = name;
+
+    /**
+     * The description for this method.
+     */
+    this.description = `Creates an schema for a ${this.name} type.`;
+
+    /**
+     * A reference to the {@link ProgramGenerator} that created this method instance.
+     */
+    this.generator = generator;
+
+    /**
+     * Details about the parameters for this method.
+     */
+    this.parameters = {
+      /**
+       * The names of the method parameters.
+       *
+       * @type {string[]}
+       */
+      names: [],
+    };
   }
 
   /**
+   * Adds the names of the parameters from the declarations to the `parameters.names`
+   * array if they don't already exist.
+   */
+  #step1_addParametersNames() {
+    this.declarations
+      .map(utils.pickProperty("parameters"))
+      .flat()
+      .filter(utils.hasProperty("name"))
+      .map(utils.pickProperty("name"))
+      .forEach((name) => {
+        const nameTxt = name.getText();
+
+        if (!this.parameters.names.includes(nameTxt)) {
+          this.parameters.names.push(nameTxt);
+        }
+      });
+
+    return this;
+  }
+
+  /**
+   * Adds the provided declarations to the internal array of declarations.
+   *
    * @param {NamedMethodDeclaration[]} declarations
    */
   addDeclarations(...declarations) {
     this.declarations.push(...declarations);
+
+    return this;
+  }
+
+  /**
+   * Triggers initialization tasks for the method, such as adding parameter names.
+   */
+  triggerInitTasks() {
+    return this.#step1_addParametersNames();
+  }
+
+  /**
+   * Generates template data for this method based on its declarations.
+   *
+   * @returns Object containing name, JSDoc comment, and comma-separated parameter
+   *          list.
+   */
+  getTemplateData() {
+    const commentLines = [utils.Jsdoc.start];
+
+    commentLines.push(`${utils.Jsdoc.description.render(this)}`, utils.Jsdoc.emptyLine);
+
+    commentLines.push(utils.Jsdoc.end);
+
+    return {
+      name: this.name,
+      comment: commentLines.join("\n"),
+      parameters: this.parameters.names.join(", "),
+    };
   }
 }
 
@@ -139,6 +192,18 @@ export class ProgramGenerator {
   };
 
   /**
+   * @param {Record<string, any>} replacements
+   */
+  static renderTemplate(replacements) {
+    return mustache.render(this.config.template, replacements, undefined, {
+      tags: ["<%", "%>"],
+      escape(value) {
+        return value;
+      },
+    });
+  }
+
+  /**
    * Named {@link ts.ClassDeclaration} nodes for builder classes configured in the static config.
    *
    * @type {NamedClassDeclaration[]}
@@ -163,6 +228,10 @@ export class ProgramGenerator {
     "TIndexPropertyKeys",
     "TTemplateLiteralKind",
   ];
+
+  get internalTypePattern() {
+    return new RegExp(this.internalTypes.join("|"), "g");
+  }
 
   /**
    * Named {@link ts.MethodDeclaration} nodes wrapped by the custom class {@link Method},
@@ -191,7 +260,7 @@ export class ProgramGenerator {
   sources = this.tsProgram.getSourceFiles().filter(this.super.isRootFileSource);
 
   constructor() {
-    this.#fillBuilders().#fillMethods();
+    this.#fillBuilders().#fillOptionTypeNames().#fillMethods();
     utils.hideProperties(this, "tsProgram", "typeChecker");
   }
 
@@ -211,6 +280,25 @@ export class ProgramGenerator {
         }
       });
     });
+
+    return this;
+  }
+
+  /**
+   * Adds the TypeBox Options object types to {@link ProgramGenerator.internalTypes}.
+   */
+  #fillOptionTypeNames() {
+    let fullText = "";
+
+    this.sources.forEach((source) => {
+      fullText += source.getFullText() + "\n";
+    });
+
+    this.internalTypes.push(
+      ...utils.getUnique(
+        [...fullText.matchAll(/\w+Options /g)].map(utils.pickProperty(0)).map(utils.trim),
+      ),
+    );
 
     return this;
   }
@@ -239,13 +327,54 @@ export class ProgramGenerator {
 
     const groupings = utils.groupBy(rawMethods, (el) => this.super.getNameText(el.name));
 
-    this.methods.push(...names.map(Method.init));
+    this.methods.push(...names.map(Method.init.bind(null, this)));
 
     this.methods.forEach((method) => {
       method.addDeclarations(...groupings[method.name]);
+      method.triggerInitTasks();
     });
 
     return this;
+  }
+
+  /**
+   * Patches internal type references in a string value by prefixing them with the
+   * `typebox`
+   * namespace.
+   *
+   * @param {string} value - The string value to patch.
+   * @returns {string} The patched string.
+   */
+  patchType = (value) => {
+    const items = utils.getUnique(
+      Array.from(value.matchAll(this.internalTypePattern)).map(utils.pickProperty(0)),
+    );
+    let patch = value;
+
+    items.forEach((item) => {
+      if (this.internalTypes.includes(item)) {
+        patch = patch.replaceAll(item, utils.addPrefix("typebox", ".", item));
+      }
+    });
+
+    return patch.trim();
+  };
+
+  /**
+   * Writes the rendered template content to the given file path.
+   * Formats the content using Prettier before writing to the file.
+   *
+   * @param {string} path - The file path to write the content to.
+   * @returns {Promise<void>}
+   */
+  async writeToFile(path) {
+    const content = this.super.renderTemplate({
+      methods: this.methods.map((m) => m.getTemplateData()),
+    });
+    const options = await prettier.resolveConfig(path);
+    const formatted = await prettier.format(content, options || {});
+
+    return fs.writeFileSync(path, formatted, "utf-8");
   }
 
   /**
